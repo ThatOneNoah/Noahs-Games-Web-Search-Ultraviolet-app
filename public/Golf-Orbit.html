@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Unity WebGL Player</title>
+    <style>
+      body { margin: 0; padding: 0; background-color: black; overflow: hidden; }
+      #unity-container { width: 100vw; height: 100vh; position: absolute; }
+      canvas { width: 100%; height: 100%; }
+      #loading-cover { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: black; display: flex; justify-content: center; align-items: center; color: white; font-family: sans-serif; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas id="unity-canvas"></canvas>
+      <div id="loading-cover">Loading...</div>
+    </div>
+    
+    <script>
+      // 1. DEFINE THE BASE URL
+      // This points to the repository root on the CDN
+      var repoBaseUrl = "https://cdn.jsdelivr.net/gh/fojiphoto/GO-Tele-01@main";
+      var buildUrl = repoBaseUrl + "/Build";
+      
+      var loaderUrl = buildUrl + "/b23dd96997961653e2825455633aac82.loader.js";
+
+      var config = {
+        dataUrl: buildUrl + "/513005a2b1387775d1e417ef5d37fb57.data.unityweb",
+        frameworkUrl: buildUrl + "/09b957fad5f79fb4e1ff96391c063a40.framework.js.unityweb",
+        codeUrl: buildUrl + "/dfa1d348a33fbf89287a00d05dad8f54.wasm.unityweb",
+        
+        // --- THE FIX IS HERE ---
+        // We force Unity to look for assets on the internet, not in your Downloads folder.
+        // I am assuming the "StreamingAssets" folder is in the root of the repo.
+        // If the game still errors, try changing this to: buildUrl + "/StreamingAssets"
+        streamingAssetsUrl: repoBaseUrl + "/StreamingAssets",
+        
+        companyName: "DefaultCompany",
+        productName: "Golf Orbit",
+        productVersion: "1.0",
+      };
+
+      var container = document.querySelector("#unity-container");
+      var canvas = document.querySelector("#unity-canvas");
+      var loadingCover = document.querySelector("#loading-cover");
+
+      // Load the script
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          loadingCover.innerText = "Loading: " + Math.round(progress * 100) + "%";
+        }).then((unityInstance) => {
+          loadingCover.style.display = "none";
+        }).catch((message) => {
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>

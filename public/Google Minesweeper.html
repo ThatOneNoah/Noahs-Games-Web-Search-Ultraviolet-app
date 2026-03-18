@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Minesweeper - Animated Version</title>
+    <style>
+        /* Exact Google UI Colors & Fonts */
+        :root {
+            --header-bg: #4a752c;
+            --grid-light: #aad751;
+            --grid-dark: #a2d149;
+            --dirt-light: #e5c29f;
+            --dirt-dark: #d7b899;
+            --overlay-bg: #3b5e23;
+            --text-color: #ffffff;
+            --google-red: #ea4335;
+            --google-yellow: #fbbc04;
+            --modal-blue: #4fc3f7;
+            --modal-green: #578a34;
+            --btn-green: #588a34;
+            --btn-green-hover: #4a752c;
+        }
+
+        body, html {
+            margin: 0; padding: 20px; 
+            box-sizing: border-box;
+            width: 100%; min-height: 100vh;
+            background-color: #202124;
+            font-family: 'Google Sans', Roboto, Arial, sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            user-select: none;
+        }
+
+        #game-container {
+            background-color: var(--grid-light);
+            position: relative; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column;
+            transition: width 0.3s, height 0.3s;
+        }
+
+        /* Header Styling */
+        #header {
+            height: 50px; background-color: var(--header-bg);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 16px; color: var(--text-color); z-index: 10;
+        }
+
+        /* Dropdown Menu */
+        .dropdown-container { position: relative; }
+        
+        .dropdown {
+            background-color: white; color: #202124;
+            padding: 6px 10px; border-radius: 4px;
+            font-size: 14px; font-weight: bold;
+            display: flex; align-items: center; gap: 6px; cursor: pointer;
+        }
+
+        .dropdown .arrow {
+            width: 0; height: 0; border-left: 4px solid transparent;
+            border-right: 4px solid transparent; border-top: 5px solid #202124;
+        }
+
+        .dropdown-menu {
+            display: none; position: absolute; top: 100%; left: 0; margin-top: 5px;
+            background: white; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            flex-direction: column; overflow: hidden; z-index: 100; min-width: 100px;
+        }
+
+        .dropdown-menu div {
+            padding: 10px 16px; color: #202124; cursor: pointer;
+            font-size: 14px; font-weight: bold;
+        }
+
+        .dropdown-menu div:hover { background-color: #f1f3f4; }
+
+        .stats-container {
+            display: flex; gap: 30px; align-items: center;
+            font-size: 18px; font-variant-numeric: tabular-nums;
+            font-weight: bold; cursor: pointer;
+        }
+        .stat { display: flex; align-items: center; gap: 8px; }
+        .controls { display: flex; gap: 16px; align-items: center; }
+        .controls svg { fill: white; cursor: pointer; opacity: 0.9; }
+        .controls svg:hover { opacity: 1; }
+
+        /* Grid Styling */
+        #grid { flex-grow: 1; display: grid; }
+        
+        /* Block Outline & Animations */
+        @keyframes revealPop {
+            0% { transform: scale(0.7); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes bombDrop {
+            0% { transform: scale(0) translateY(-10px); }
+            100% { transform: scale(1) translateY(0); }
+        }
+
+        .cell {
+            display: flex; justify-content: center; align-items: center;
+            font-size: 22px; font-weight: 900; cursor: pointer;
+            box-sizing: border-box; width: 40px; height: 40px;
+            /* Added Outlines */
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06);
+        }
+
+        .hidden.light { background-color: var(--grid-light); }
+        .hidden.light:hover { background-color: #bfe17d; }
+        .hidden.dark { background-color: var(--grid-dark); }
+        .hidden.dark:hover { background-color: #b9dd77; }
+        
+        .revealed { animation: revealPop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .revealed.light { background-color: var(--dirt-light); }
+        .revealed.dark { background-color: var(--dirt-dark); }
+
+        .val-1 { color: #1976d2; } .val-2 { color: #388e3c; }
+        .val-3 { color: #d32f2f; } .val-4 { color: #7b1fa2; }
+        .val-5 { color: #ff8f00; } .val-6 { color: #0097a7; }
+        .val-7 { color: #424242; } .val-8 { color: #9e9e9e; }
+        
+        .dot { 
+            width: 18px; height: 18px; border-radius: 50%; 
+            animation: bombDrop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        /* Tutorial Overlay */
+        #tutorial-overlay {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 130px; height: 130px;
+            background-color: var(--overlay-bg); border-radius: 16px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); pointer-events: none;
+            transition: opacity 0.2s; z-index: 5;
+        }
+
+        /* Animated Modal Screen */
+        #modal-overlay {
+            position: absolute; top: 50px; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.4);
+            display: none; justify-content: center; align-items: center;
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #modal-overlay.show {
+            display: flex; opacity: 1;
+        }
+
+        .modal-box {
+            width: 300px; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            display: flex; flex-direction: column;
+            transform: scale(0.8) translateY(40px);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #modal-overlay.show .modal-box {
+            transform: scale(1) translateY(0);
+        }
+
+        .modal-top {
+            height: 180px; position: relative;
+            display: flex; flex-direction: column; align-items: center;
+            transition: background-color 0.3s;
+        }
+
+        .modal-stats {
+            display: flex; width: 100%; justify-content: space-evenly;
+            margin-top: 30px; color: white; font-weight: bold; font-size: 20px; z-index: 3;
+        }
+
+        .m-stat { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        
+        .illustration { position: absolute; bottom: 0; width: 100%; height: 60px; }
+        .ground-blocks { position: absolute; bottom: 0; width: 100%; height: 20px; display: flex; }
+        .gb { flex-grow: 1; height: 100%; }
+        .gb:nth-child(odd) { background-color: #d7b899; }
+        .gb:nth-child(even) { background-color: #e5c29f; }
+        
+        .modal-bottom {
+            background-color: var(--grid-light); padding: 16px;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        .try-again-btn {
+            background-color: var(--btn-green); color: white;
+            padding: 12px 30px; border-radius: 6px; font-size: 16px;
+            font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px;
+            transition: background-color 0.1s, transform 0.1s;
+        }
+        .try-again-btn:hover { background-color: var(--btn-green-hover); }
+        .try-again-btn:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="header">
+        <div class="dropdown-container">
+            <div class="dropdown" onclick="toggleMenu(event)">
+                <span id="current-mode">Medium</span> <span class="arrow"></span>
+            </div>
+            <div id="difficulty-menu" class="dropdown-menu">
+                <div onclick="setDifficulty('easy')">Easy</div>
+                <div onclick="setDifficulty('medium')">Medium</div>
+                <div onclick="setDifficulty('hard')">Hard</div>
+                <div onclick="setDifficulty('expert')">Expert</div>
+            </div>
+        </div>
+
+        <div class="stats-container" onclick="initGame()" title="Click to Restart">
+            <div class="stat">
+                <svg width="24" height="24" viewBox="0 0 24 24"><path d="M6 22V3l13 6-13 6" fill="var(--google-red)"/><path d="M4 22h4" stroke="var(--google-red)" stroke-width="2" stroke-linecap="round"/></svg>
+                <span id="mine-count">040</span>
+            </div>
+            <div class="stat">
+                <svg width="26" height="26" viewBox="0 0 24 24"><rect x="10" y="2" width="4" height="3" fill="white" rx="1"/><path d="M17 5l2 2-1 1-2-2z" fill="white"/><circle cx="12" cy="13" r="9" fill="var(--google-yellow)"/><path d="M12 9v4l2.5 2.5" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                <span id="timer">000</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <svg width="24" height="24" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </div>
+    </div>
+
+    <div id="grid"></div>
+
+    <div id="tutorial-overlay">
+        <svg width="90" height="90" viewBox="0 0 100 100">
+            <rect x="25" y="30" width="30" height="42" rx="15" fill="none" stroke="white" stroke-width="2.5"/>
+            <line x1="25" y1="48" x2="55" y2="48" stroke="white" stroke-width="2.5"/>
+            <line x1="40" y1="30" x2="40" y2="48" stroke="white" stroke-width="2.5"/>
+            <path d="M 40 30 A 15 15 0 0 1 55 45 V 48 H 40 Z" fill="white"/>
+            <path d="M 12 28 L 18 34 M 8 42 H 16" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M 68 25 V 55 M 68 25 L 88 32 L 68 39" fill="white" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+    </div>
+
+    <div id="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-top" id="modal-top">
+                <div class="modal-stats">
+                    <div class="m-stat">
+                        <svg width="40" height="40" viewBox="0 0 24 24"><circle cx="12" cy="13" r="10" fill="var(--google-yellow)"/><path d="M12 8v5l3 3" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/><rect x="9" y="1" width="6" height="3" fill="white" rx="1"/></svg>
+                        <span id="modal-time">_ _ _</span>
+                    </div>
+                </div>
+                <div class="illustration" id="illustration-container"></div>
+            </div>
+            <div class="modal-bottom">
+                <div class="try-again-btn" onclick="initGame()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                    <span id="modal-btn-text">Try again</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const DIFFICULTIES = {
+        easy: { cols: 10, rows: 8, mines: 10, name: "Easy" },
+        medium: { cols: 18, rows: 14, mines: 40, name: "Medium" },
+        hard: { cols: 24, rows: 20, mines: 99, name: "Hard" },
+        expert: { cols: 30, rows: 24, mines: 160, name: "Expert" }
+    };
+
+    let currentMode = 'medium';
+    const CELL_SIZE = 40;
+    const POLKA_DOT_COLORS = ['#1976d2', '#388e3c', '#d32f2f', '#7b1fa2', '#ff8f00', '#0097a7', '#424242'];
+
+    let COLS, ROWS, TOTAL_MINES;
+    let board = []; let minesLeft = 0; let gameOver = false;
+    let timerInterval = null; let secondsElapsed = 0; let firstClick = true;
+
+    const gameContainer = document.getElementById('game-container');
+    const gridElement = document.getElementById('grid');
+    const mineCountElement = document.getElementById('mine-count');
+    const timerElement = document.getElementById('timer');
+    const tutorialOverlay = document.getElementById('tutorial-overlay');
+    const modalOverlay = document.getElementById('modal-overlay');
+
+    function toggleMenu(e) {
+        e.stopPropagation();
+        const menu = document.getElementById('difficulty-menu');
+        menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    document.addEventListener('click', () => { document.getElementById('difficulty-menu').style.display = 'none'; });
+
+    function setDifficulty(mode) {
+        currentMode = mode;
+        document.getElementById('current-mode').textContent = DIFFICULTIES[mode].name;
+        initGame();
+    }
+
+    function initGame() {
+        const cfg = DIFFICULTIES[currentMode];
+        COLS = cfg.cols; ROWS = cfg.rows; TOTAL_MINES = cfg.mines;
+
+        gameContainer.style.width = `${COLS * CELL_SIZE}px`;
+        gameContainer.style.height = `${(ROWS * CELL_SIZE) + 50}px`; 
+        
+        gridElement.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+        gridElement.style.gridTemplateRows = `repeat(${ROWS}, 1fr)`;
+        gridElement.innerHTML = ''; 
+
+        board = []; minesLeft = TOTAL_MINES;
+        gameOver = false; firstClick = true; secondsElapsed = 0;
+        
+        clearInterval(timerInterval); updateUI();
+        tutorialOverlay.style.opacity = '1';
+        
+        modalOverlay.classList.remove('show');
+        setTimeout(() => { modalOverlay.style.display = 'none'; }, 300);
+
+        for (let r = 0; r < ROWS; r++) {
+            let row = [];
+            for (let c = 0; c < COLS; c++) {
+                const cell = { r, c, isMine: false, isRevealed: false, isFlagged: false, neighborMines: 0, element: document.createElement('div') };
+                cell.element.className = `cell hidden ${(r + c) % 2 === 0 ? 'light' : 'dark'}`;
+
+                cell.element.addEventListener('mousedown', (e) => {
+                    if (e.button === 0) handleLeftClick(r, c);
+                    else if (e.button === 2) handleRightClick(r, c);
+                });
+                cell.element.addEventListener('contextmenu', e => e.preventDefault());
+
+                gridElement.appendChild(cell.element); row.push(cell);
+            }
+            board.push(row);
+        }
+    }
+
+    function placeMines(firstRow, firstCol) {
+        let minesPlaced = 0;
+        while (minesPlaced < TOTAL_MINES) {
+            const r = Math.floor(Math.random() * ROWS); const c = Math.floor(Math.random() * COLS);
+            if (!board[r][c].isMine && Math.max(Math.abs(r - firstRow), Math.abs(c - firstCol)) > 1) {
+                board[r][c].isMine = true; minesPlaced++;
+            }
+        }
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (board[r][c].isMine) continue;
+                let count = 0;
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        let nr = r + dr, nc = c + dc;
+                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && board[nr][nc].isMine) count++;
+                    }
+                }
+                board[r][c].neighborMines = count;
+            }
+        }
+    }
+
+    function handleLeftClick(r, c) {
+        if (gameOver || board[r][c].isFlagged) return;
+
+        if (firstClick) {
+            firstClick = false; tutorialOverlay.style.opacity = '0';
+            placeMines(r, c);
+            timerInterval = setInterval(() => {
+                secondsElapsed++; if (secondsElapsed <= 999) updateUI();
+            }, 1000);
+        }
+
+        if (board[r][c].isMine) {
+            triggerGameOver(false, r, c); return;
+        }
+        revealCell(r, c); checkWinCondition();
+    }
+
+    function handleRightClick(r, c) {
+        if (gameOver || board[r][c].isRevealed) return;
+        if (firstClick) tutorialOverlay.style.opacity = '0';
+
+        const cell = board[r][c]; cell.isFlagged = !cell.isFlagged;
+        cell.element.textContent = cell.isFlagged ? '🚩' : '';
+        minesLeft += cell.isFlagged ? -1 : 1; updateUI();
+    }
+
+    function revealCell(r, c) {
+        if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+        const cell = board[r][c];
+        if (cell.isRevealed || cell.isFlagged) return;
+
+        cell.isRevealed = true; cell.element.classList.remove('hidden'); cell.element.classList.add('revealed');
+
+        if (cell.neighborMines > 0) {
+            cell.element.textContent = cell.neighborMines;
+            cell.element.classList.add(`val-${cell.neighborMines}`);
+        } else {
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) revealCell(r + dr, c + dc);
+            }
+        }
+    }
+
+    function checkWinCondition() {
+        let revealedCount = 0;
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (board[r][c].isRevealed) revealedCount++;
+            }
+        }
+        if (revealedCount === (ROWS * COLS) - TOTAL_MINES) {
+            triggerGameOver(true); minesLeft = 0; updateUI();
+        }
+    }
+
+    function triggerGameOver(won, killerRow = -1, killerCol = -1) {
+        gameOver = true; clearInterval(timerInterval);
+
+        let bombsToReveal = [];
+
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                const cell = board[r][c];
+                if (cell.isMine && !cell.isFlagged) {
+                    if (!won) {
+                        if (r === killerRow && c === killerCol) {
+                            revealBomb(cell, true); // Instantly reveal the killer bomb
+                        } else {
+                            bombsToReveal.push(cell); // Queue others for animation cascade
+                        }
+                    }
+                } else if (cell.isFlagged && !cell.isMine && !won) {
+                    cell.element.textContent = '❌';
+                } else if (cell.isMine && won && !cell.isFlagged) {
+                    cell.element.textContent = '🚩';
+                }
+            }
+        }
+
+        // Sequential Bomb Reveal Animation
+        if (!won && bombsToReveal.length > 0) {
+            bombsToReveal.sort(() => Math.random() - 0.5); // Randomize reveal order
+            
+            // Calculate speed so you don't wait forever on expert mode
+            const delayStep = Math.min(40, 1500 / bombsToReveal.length); 
+            
+            bombsToReveal.forEach((cell, index) => {
+                setTimeout(() => revealBomb(cell, false), index * delayStep);
+            });
+            
+            // Wait for all bombs to reveal before showing the Game Over modal
+            setTimeout(() => showModal(won), (bombsToReveal.length * delayStep) + 600);
+        } else {
+            // Instantly show modal if you won
+            setTimeout(() => showModal(won), 800);
+        }
+    }
+
+    function revealBomb(cell, isKiller) {
+        cell.element.classList.remove('hidden'); cell.element.classList.add('revealed');
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+        dot.style.backgroundColor = POLKA_DOT_COLORS[Math.floor(Math.random() * POLKA_DOT_COLORS.length)];
+        
+        cell.element.innerHTML = ''; cell.element.appendChild(dot);
+        
+        if (isKiller) {
+            cell.element.style.backgroundColor = '#ea4335';
+            dot.style.backgroundColor = '#202124'; // Killer bomb center is black
+        }
+    }
+
+    function showModal(won) {
+        document.getElementById('modal-time').textContent = secondsElapsed.toString().padStart(3, '0');
+        const topBg = document.getElementById('modal-top');
+        const container = document.getElementById('illustration-container');
+        const btnText = document.getElementById('modal-btn-text');
+
+        let groundHTML = `
+            <div class="ground-blocks">
+                <div class="gb"></div><div class="gb"></div><div class="gb" style="background:#ea4335"></div><div class="gb" style="background:#ab47bc"></div>
+                <div class="gb"></div><div class="gb" style="background:#ff9800"></div><div class="gb"></div><div class="gb" style="background:#aad751"></div>
+            </div>`;
+
+        if (won) {
+            topBg.style.backgroundColor = 'var(--modal-green)';
+            btnText.textContent = "Play again";
+            container.innerHTML = `
+                <svg style="position:absolute; left: 50%; transform: translateX(-50%); bottom: 10px; z-index: 2" width="60" height="60" viewBox="0 0 24 24"><path d="M19 3h-2V2h-2v1H9V2H7v1H5c-1.1 0-2 .9-2 2v3c0 2.22 1.6 4.08 3.68 4.64.69 2.5 2.97 4.36 5.32 4.36v3h-2v2h6v-2h-2v-3c2.35 0 4.63-1.86 5.32-4.36C20.4 10.08 22 8.22 22 6V5c0-1.1-.9-2-2-2zM7 8H5V5h2v3zm12 0h-2V5h2v3z" fill="var(--google-yellow)"/></svg>
+                <svg style="position:absolute; left: 40px; bottom: 30px; z-index: 2" width="20" height="20" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="var(--google-yellow)"/></svg>
+                <svg style="position:absolute; right: 40px; bottom: 40px; z-index: 2" width="16" height="16" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="var(--google-yellow)"/></svg>
+                ${groundHTML}`;
+        } else {
+            topBg.style.backgroundColor = 'var(--modal-blue)';
+            btnText.textContent = "Try again";
+            container.innerHTML = `
+                <svg style="position:absolute; left: 125px; bottom: 8px; z-index: 2" width="50" height="60" viewBox="0 0 50 60"><path d="M35 10 L25 25 L22 22 L32 7 Z" fill="#795548"/><path d="M18 18 Q 28 15 30 25 L 20 35 Q 10 33 12 23 Z" fill="#bdbdbd"/></svg>
+                <svg style="position:absolute; left: 20px; bottom: 10px; z-index: 2; transform: rotate(-70deg)" width="30" height="30" viewBox="0 0 24 24"><path d="M6 22V3l13 6-13 6" fill="var(--google-red)"/></svg>
+                <svg style="position:absolute; right: 20px; bottom: 10px; z-index: 2; transform: rotate(70deg)" width="30" height="30" viewBox="0 0 24 24"><path d="M6 22V3l13 6-13 6" fill="var(--google-red)"/></svg>
+                ${groundHTML}`;
+        }
+
+        // Trigger the smooth scale-in and fade-in animations
+        modalOverlay.style.display = 'flex';
+        void modalOverlay.offsetWidth; // Force a CSS reflow before adding the animation class
+        modalOverlay.classList.add('show');
+    }
+
+    function updateUI() {
+        mineCountElement.textContent = minesLeft.toString().padStart(3, '0');
+        timerElement.textContent = secondsElapsed.toString().padStart(3, '0');
+    }
+
+    initGame();
+</script>
+
+</body>
+</html>

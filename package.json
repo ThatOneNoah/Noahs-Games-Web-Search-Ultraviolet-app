@@ -1,7 +1,7 @@
 {
 	"name": "my-math-homework-app",
 	"version": "1.0.0",
-	"description": "my homework",
+	"description": "my-homework",
 	"type": "module",
 	"engines": {
 		"node": ">=24.0.0"
